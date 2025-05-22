@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Score Input - Score Management System</title>
+  <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <nav class="bg-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <h1 class="text-xl font-bold">Score Input</h1>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <a href="index.html" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded mr-4">
+                        Back to Programs
+                    </a>
+                    <button id="logoutBtn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded">
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <h2 id="programName" class="text-2xl font-bold mb-4"></h2>
+        <div class="mb-4">
+            <label for="candidateCount" class="block mb-1 font-medium">Number of Candidates:</label>
+            <input type="number" id="candidateCount" min="1" max="26" value="8" class="px-3 py-2 border rounded-md">
+            <button onclick="generateTable()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded ml-2">
+                Generate Table
+            </button>
+        </div>
+        <table id="scoreTable" class="w-full bg-white shadow-md rounded-lg overflow-hidden">
+            <thead class="bg-gray-200">
+                <tr>
+                    <th class="px-4 py-2">Candidate</th>
+                    <th class="px-4 py-2">Score</th>
+                    <th class="px-4 py-2" style="width: 200px;">Add/Subtract</th>
+                    <th class="px-4 py-2">History</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </main>
+
+    <script>
+        const programIndex = new URLSearchParams(window.location.search).get('program');
+        let programs = JSON.parse(localStorage.getItem('programs')) || [];
+        let program = programs[programIndex];
+        const channel = new BroadcastChannel('scores_channel');
+
+        document.getElementById('programName').textContent = program.name;
+
+        function generateTable() {
+            const count = document.getElementById('candidateCount').value;
+            const tbody = document.querySelector('#scoreTable tbody');
+            tbody.innerHTML = '';
+            program.candidates['QMaster'] = { score: 0, history: [] };
+            const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td class="border px-4 py-2">QMaster</td>
+                    <td class="border px-4 py-2" id="scoreQMaster">${program.candidates['QMaster'].score}</td>
+                    <td class="border px-4 py-2">
+                        <input type="number" id="inputQMaster" step="0.25" class="w-20 px-2 py-1 border rounded-md">
+                        <button onclick="updateScore('QMaster', 1)" class="bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-2 rounded ml-1">+</button>
+                        <button onclick="updateScore('QMaster', -1)" class="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-2 rounded ml-1">-</button>
+                    </td>
+                    <td class="border px-4 py-2 " id="historyQMaster">${formatHistory(program.candidates['QMaster'].history)}</td>
+                `;
+            for (let i = 0; i < count; i++) {
+                const letter = String.fromCharCode(65 + i);
+                if (!program.candidates[letter]) {
+                    program.candidates[letter] = { score: 0, history: [] };
+                }
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td class="border px-4 py-2">${letter}</td>
+                    <td class="border px-4 py-2" id="score${letter}">${program.candidates[letter].score}</td>
+                    <td class="border px-4 py-2">
+                        <input type="number" id="input${letter}" step="0.25" class="w-20 px-2 py-1 border rounded-md">
+                        <button onclick="updateScore('${letter}', 1)" class="bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-2 rounded ml-1">+</button>
+                        <button onclick="updateScore('${letter}', -1)" class="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-2 rounded ml-1">-</button>
+                    </td>
+                    <td class="border px-4 py-2 " id="history${letter}">${formatHistory(program.candidates[letter].history)}</td>
+                `;
+            }
+           
+            saveProgram();
+        }
+
+        function updateScore(candidate, multiplier) {
+            const input = document.getElementById(`input${candidate}`);
+            const value = parseFloat(input.value) || 0;
+            const change = value * multiplier;
+            program.candidates[candidate].score += change;
+            program.candidates[candidate].history.push(change);
+            document.getElementById(`score${candidate}`).textContent = program.candidates[candidate].score;
+            document.getElementById(`history${candidate}`).textContent = formatHistory(program.candidates[candidate].history);
+            input.value = '';
+            saveProgram();
+        }
+
+        function formatHistory(history) {
+            return history.map(v => (v > 0 ? '+' : '') + v).join(' ');
+        }
+
+        function saveProgram() {
+            programs[programIndex] = program;
+            localStorage.setItem('programs', JSON.stringify(programs));
+            channel.postMessage({ type: 'update', programIndex: programIndex, data: program });
+        }
+
+        document.getElementById('logoutBtn').addEventListener('click', function() {
+            localStorage.removeItem('currentUser');
+            window.location.href = 'login.html';
+        });
+
+        // Check if user is logged in
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        if (!currentUser) {
+            window.location.href = 'login.html';
+        } else {
+            generateTable();
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Score Display - Score Management System</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- <nav class="bg-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <h1 class="text-xl font-bold">Score Display</h1>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <a href="index.html" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded mr-4">
+                        Back to Programs
+                    </a>
+                   
+                </div>
+            </div>
+        </div>
+    </nav>  -->
+ <button id="logoutBtn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded hidden">
+                        Logout
+                    </button>
+    <main class="max-h-full mx-auto py-6 sm:px-6 lg:px-8">
+        <h2 id="programName" class="text-2xl font-bold mb-4"></h2>
+        <button onclick="toggleHistory()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded mb-4">
+            Toggle History
+        </button>
+        <table id="scoreTable" class="w-full bg-white shadow-md rounded-lg overflow-hidden">
+            <thead class="bg-gray-200">
+                <tr >
+                    <th class="px-4 py-2 letterh">Candidate</th>
+                    <th class="px-4 py-2 ">Score</th>
+                    <th class="px-4 py-2 history">History</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </main>
+
+    <script>
+        const programIndex = new URLSearchParams(window.location.search).get('program');
+        let programs = JSON.parse(localStorage.getItem('programs')) || [];
+        let program = programs[programIndex];
+        const channel = new BroadcastChannel('scores_channel');
+        let showHistory = false;
+
+        document.getElementById('programName').textContent = program.name;
+
+        function updateScoreTable() {
+            const tbody = document.querySelector('#scoreTable tbody');
+            tbody.innerHTML = '';
+
+            Object.entries(program.candidates).forEach(([letter, data]) => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td class="border px-4 py-2 letter">${letter}</td>
+                    <td class="border px-4 py-2 Candidate ">${data.score}</td>
+                    <td class="border px-4 py-2 max-w-20 history">${formatHistory(data.history)}</td>
+                `;
+            });
+
+            updateHistoryVisibility();
+        }
+
+        function formatHistory(history) {
+            return history.map(v => (v > 0 ? '+' : '') + v).join(' ');
+        }
+
+        function toggleHistory() {
+            showHistory = !showHistory;
+            updateHistoryVisibility();
+        }
+
+        function updateHistoryVisibility() {
+            const historyCells = document.querySelectorAll('.history');
+            historyCells.forEach(cell => {
+                cell.style.display = showHistory ? 'table-cell' : 'none';
+            });
+        }
+
+        document.getElementById('logoutBtn').addEventListener('click', function() {
+            localStorage.removeItem('currentUser');
+            window.location.href = 'login.html';
+        });
+
+        // Check if user is logged in
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        if (!currentUser) {
+            window.location.href = 'login.html';
+        } else {
+            updateScoreTable();
+        }
+
+        // Listen for updates from the input page
+        channel.onmessage = (event) => {
+            if (event.data.type === 'update' && event.data.programIndex === programIndex) {
+                program = event.data.data;
+                updateScoreTable();
+            }
+        };
+        
+    </script>
+</body>
+</html>
